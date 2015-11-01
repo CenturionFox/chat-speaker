@@ -1,36 +1,46 @@
 ﻿using System;
 using System.Speech.Synthesis;
 using System.Windows.Forms;
+using Attribute.ChatSpeaker.Speech;
 
 namespace Attribute.ChatSpeaker
 {
-    static class Program
+    internal static class Program
     {
+        #region [-- PUBLIC & PROTECTED METHODS --]
+
         /// <summary>
-        /// The main entry point for the application.
+        ///     The main entry point for the application.
         /// </summary>
         [STAThread]
         public static void Main()
         {
             var synth = new SpeechSynthesizer();
+            var voices = synth.GetInstalledVoices();
 
-            var val = synth.GetInstalledVoices();
-
-            foreach (var k in val)
+            var sp = new Speaker[voices.Count];
+            for (var i = 0; i < sp.Length; i++)
             {
-                try
+                sp[i] = new Speaker()
                 {
-                    synth.SelectVoice(k.VoiceInfo.Name);
-                    synth.Speak("Hello from " + k.VoiceInfo.Name);
-                }
-                catch (Exception)
-                {
-                    MessageBox.Show("Speak failed for voice " + k.VoiceInfo.Name);
-                }
+                    SpeakerName = "TEST",
+                    VoiceName = voices[i].VoiceInfo.Name
+                };
             }
-            //Application.EnableVisualStyles();
-            //Application.SetCompatibleTextRenderingDefault(false);
-            //Application.Run(new MainForm());
+
+            foreach (var s in sp)
+            {
+                s.Speak("Hello from " + s.SpeakerName + ": " + s.VoiceName, synth);
+
+            }
+
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new MainForm());
+
+            
         }
+
+        #endregion
     }
 }
