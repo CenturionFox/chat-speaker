@@ -26,6 +26,8 @@ namespace Attribute.ChatSpeaker
                     SpeakerName = "TEST",
                     VoiceName = voices[i].VoiceInfo.Name
                 };
+
+                sp[i].OnErrored += OnError;
             }
 
             foreach (var s in sp)
@@ -37,8 +39,16 @@ namespace Attribute.ChatSpeaker
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
+        }
 
-            
+        static void OnError(object sender, UnhandledExceptionEventArgs e)
+        {
+            MessageBox.Show("Speaker " + sender + " failed to speak: " + e.ExceptionObject);
+
+            if (e.IsTerminating)
+            {
+                Exception ex = new Exception("Speaker failure.", e.ExceptionObject as Exception);
+            }
         }
 
         #endregion
