@@ -32,7 +32,7 @@ namespace Attribute.ChatSpeaker
                 };
 
                 sp[i].Errored += onErrored;
-                sp[i].SynthesizerVoiceChanged += onSynthesizerVoiceChanged;
+                sp[i].SynthesizerVoiceChange += onSynthesizerVoiceChange;
                 sp[i].VoiceName = voices[i].VoiceInfo.Name;
             }
 
@@ -61,7 +61,7 @@ namespace Attribute.ChatSpeaker
             }
         }
 
-        static void onSynthesizerVoiceChanged(object sender, VoiceChangeEventArgs e)
+        static void onSynthesizerVoiceChange(object sender, VoiceChangeEventArgs e)
         {
             MessageBox.Show($"{sender}'s synthesizer voice was changed to {e.Voice.Name}");
         }

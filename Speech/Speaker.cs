@@ -2,7 +2,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using System.Speech.Synthesis;
+using System.Xml.Serialization;
 using Attribute.ChatSpeaker.Annotations;
 
 namespace Attribute.ChatSpeaker.Speech
@@ -10,7 +12,10 @@ namespace Attribute.ChatSpeaker.Speech
     /// <summary>
     ///     An implementation of <see cref="ISpeaker" />.
     /// </summary>
-    [DebuggerDisplay("{SpeakerName}: {VoiceName}")]
+    [DataContract,
+     DebuggerDisplay("Name: {SpeakerName}; Voice: {VoiceName}; Custom Synthesizer: {HasCustomSynthesizer}"),
+     Serializable,
+     XmlRoot(ElementName = "speaker")]
     public sealed class Speaker : ISpeaker, INotifyPropertyChanged
     {
         #region [-- CONSTRUCTORS --]
@@ -25,9 +30,9 @@ namespace Attribute.ChatSpeaker.Speech
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Speaker"/> class.
+        ///     Initializes a new instance of the <see cref="Speaker" /> class.
         /// </summary>
-        /// <param name="synthesizer">The <see cref="SpeechSynthesizer"/> for the Speaker to use.</param>
+        /// <param name="synthesizer">The <see cref="SpeechSynthesizer" /> for the Speaker to use.</param>
         public Speaker(SpeechSynthesizer synthesizer) : this()
         {
             this.Synthesizer = synthesizer;
@@ -39,7 +44,7 @@ namespace Attribute.ChatSpeaker.Speech
         #region [-- IMPLEMENTED INTERFACES --]
 
         /// <summary>
-        ///     Speaks the specified sentence.
+        ///     Speaks the specified <paramref name="line" />.
         /// </summary>
         /// <param name="line">The line to speak.</param>
         /// <param name="synthesizer">
@@ -76,6 +81,14 @@ namespace Attribute.ChatSpeaker.Speech
             }
         }
 
+        /// <summary>
+        ///     Speaks the specifiec <paramref name="line" /> asynchronously.
+        /// </summary>
+        /// <param name="line">The line to speak.</param>
+        /// <param name="synthesizer">
+        ///     The synthesizer to use when speaking.  If no value is given, or if null, the speaker's own
+        ///     synthesizer is used.
+        /// </param>
         public void SpeakAsync(string line, SpeechSynthesizer synthesizer = null)
         {
             if (!this.IsErrored)
@@ -111,6 +124,7 @@ namespace Attribute.ChatSpeaker.Speech
         /// <value>
         ///     The name of the speaker.
         /// </value>
+        [XmlAttribute(AttributeName = "speakerName", DataType = "xs:token")]
         public string SpeakerName
         {
             get { return this._speakerName; }
@@ -118,7 +132,7 @@ namespace Attribute.ChatSpeaker.Speech
             {
                 if (!value.Equals(this._speakerName))
                 {
-                    this._speakerName = value;
+                    this._speakerName = value.Trim();
                     this.onPropertyChanged(nameof(this.SpeakerName));
                 }
             }
@@ -130,6 +144,7 @@ namespace Attribute.ChatSpeaker.Speech
         /// <value>
         ///     The voice synthesizer.
         /// </value>
+        [XmlIgnore]
         public SpeechSynthesizer Synthesizer
         {
             get { return this._synthesizer; }
@@ -145,15 +160,26 @@ namespace Attribute.ChatSpeaker.Speech
                     }
 
                     this._synthesizer = value;
+                    this.onPropertyChanged(nameof(this.Synthesizer));
 
                     if (value != null)
                     {
                         this._synthesizer.SpeakStarted += this.Synthesizer_SpeakStarted;
                         this._synthesizer.SpeakCompleted += this.Synthesizer_SpeakCompleted;
                         this._synthesizer.VoiceChange += this.Synthesizer_VoiceChange;
-                    }
 
-                    this.onPropertyChanged(nameof(this.Synthesizer));
+                        if (!string.IsNullOrEmpty(this.VoiceName))
+                        {
+                            try
+                            {
+                                this._synthesizer.SelectVoice(this.VoiceName);
+                            }
+                            catch (Exception ex)
+                            {
+                                this.Errored?.Invoke(this, new UnhandledExceptionEventArgs(ex, false));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -164,6 +190,7 @@ namespace Attribute.ChatSpeaker.Speech
         /// <value>
         ///     The name of the voice.
         /// </value>
+        [XmlAttribute(AttributeName = "voiceName", DataType = "xs:normalizedString")]
         public string VoiceName
         {
             get { return this._voiceName; }
@@ -241,6 +268,10 @@ namespace Attribute.ChatSpeaker.Speech
 
         #region [-- PRIVATE METHODS --]
 
+        /// <summary>
+        ///     Raises the PropertyChanged event.
+        /// </summary>
+        /// <param name="propertyName">The name of the property being raised.</param>
         [NotifyPropertyChangedInvocator]
         private void onPropertyChanged([CallerMemberName] string propertyName = null)
         {
@@ -252,21 +283,41 @@ namespace Attribute.ChatSpeaker.Speech
 
         #region [-- EVENT HANDLERS --]
 
+        /// <summary>
+        ///     Handles the <see cref="SpeechSynthesizer.SpeakCompleted" /> event of the <see cref="Synthesizer" />.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.Speech.Synthesis.SpeakCompletedEventArgs" /> instance containing the event data.</param>
         private void Synthesizer_SpeakCompleted(object sender, SpeakCompletedEventArgs e)
         {
             this.SynthesizerSpeakCompleted?.Invoke(this, e);
         }
 
+        /// <summary>
+        ///     Handles the <see cref="SpeechSynthesizer.SpeakStarted" /> event of the <see cref="Synthesizer" />.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.Speech.Synthesis.SpeakStartedEventArgs" /> instance containing the event data.</param>
         private void Synthesizer_SpeakStarted(object sender, SpeakStartedEventArgs e)
         {
             this.SynthesizerSpeakStarted?.Invoke(this, e);
         }
 
+        /// <summary>
+        ///     Handles the <see cref="SpeechSynthesizer.VoiceChange" /> event of the <see cref="Synthesizer" />.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.Speech.Synthesis.VoiceChangeEventArgs" /> instance containing the event data.</param>
         private void Synthesizer_VoiceChange(object sender, VoiceChangeEventArgs e)
         {
-            this.SynthesizerVoiceChanged?.Invoke(this, e);
+            this.SynthesizerVoiceChange?.Invoke(this, e);
         }
 
+        /// <summary>
+        ///     Handles the <see cref="Errored" /> event of this instance.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.UnhandledExceptionEventArgs" /> instance containing the event data.</param>
         private void this_Errored(object sender, UnhandledExceptionEventArgs e)
         {
             // ReSharper disable once PossibleUnintendedReferenceComparison
@@ -276,6 +327,11 @@ namespace Attribute.ChatSpeaker.Speech
             }
         }
 
+        /// <summary>
+        ///     Handles the <see cref="PropertyChanged" /> event of this instance.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.ComponentModel.PropertyChangedEventArgs" /> instance containing the event data.</param>
         private void this_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             // ReSharper disable once PossibleUnintendedReferenceComparison
@@ -285,14 +341,29 @@ namespace Attribute.ChatSpeaker.Speech
             }
         }
 
+        /// <summary>
+        ///     Occurs when an exception is thrown in a critical area of the speaker.
+        /// </summary>
         public event UnhandledExceptionEventHandler Errored;
 
+        /// <summary>
+        ///     Occurs when a property is changed.
+        /// </summary>
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public event EventHandler<VoiceChangeEventArgs> SynthesizerVoiceChanged;
+        /// <summary>
+        ///     Occurs when the <see cref="Synthesizer" /> raises its <see cref="SpeechSynthesizer.VoiceChange" /> event.
+        /// </summary>
+        public event EventHandler<VoiceChangeEventArgs> SynthesizerVoiceChange;
 
+        /// <summary>
+        ///     Occurs when the <see cref="Synthesizer" /> raises its <see cref="SpeechSynthesizer.SpeakStarted" /> event.
+        /// </summary>
         public event EventHandler<SpeakStartedEventArgs> SynthesizerSpeakStarted;
 
+        /// <summary>
+        ///     Occurs when the <see cref="Synthesizer" /> raises its <see cref="SpeechSynthesizer.SpeakCompleted" /> event.
+        /// </summary>
         public event EventHandler<SpeakCompletedEventArgs> SynthesizerSpeakCompleted;
 
         #endregion
@@ -300,6 +371,23 @@ namespace Attribute.ChatSpeaker.Speech
 
         #region [-- PROPERTIES --]
 
+        /// <summary>
+        ///     Gets or sets a value indicating whether this instance has custom <see cref="SpeechSynthesizer" />, or if one should
+        ///     be supplied.
+        /// </summary>
+        /// <value>
+        ///     <c>true</c> if this instance has custom synthesizer; otherwise, <c>false</c>.
+        /// </value>
+        [XmlIgnore]
+        public bool HasCustomSynthesizer => this.Synthesizer != null;
+
+        /// <summary>
+        ///     Gets or sets a value indicating whether this instance is in an errored state.
+        /// </summary>
+        /// <value>
+        ///     <c>true</c> if this instance is in an errored state; otherwise, <c>false</c>.
+        /// </value>
+        [XmlIgnore]
         public bool IsErrored
         {
             get { return this._isErrored; }
@@ -311,9 +399,13 @@ namespace Attribute.ChatSpeaker.Speech
 
         #region [-- FIELDS --]
 
+        [IgnoreDataMember]
         private bool _isErrored;
+        [DataMember(Name = "speakerName", IsRequired = true)]
         private string _speakerName;
+        [IgnoreDataMember]
         private SpeechSynthesizer _synthesizer;
+        [DataMember(Name = "voiceName", IsRequired = false)]
         private string _voiceName;
 
         #endregion
