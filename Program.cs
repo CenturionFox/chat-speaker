@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Globalization;
 using System.Speech.Synthesis;
+using System.Threading;
 using System.Windows.Forms;
 using Attribute.ChatSpeaker.Speech;
 
@@ -15,40 +18,52 @@ namespace Attribute.ChatSpeaker
         [STAThread]
         public static void Main()
         {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
             var synth = new SpeechSynthesizer();
             var voices = synth.GetInstalledVoices();
 
             var sp = new Speaker[voices.Count];
             for (var i = 0; i < sp.Length; i++)
             {
-                sp[i] = new Speaker()
+                sp[i] = new Speaker(new SpeechSynthesizer())
                 {
-                    SpeakerName = "TEST",
-                    VoiceName = voices[i].VoiceInfo.Name
+                    SpeakerName = $"Speech Synthesizer Test {i + 1}",
                 };
 
-                sp[i].OnErrored += OnError;
+                sp[i].Errored += onErrored;
+                sp[i].SynthesizerVoiceChanged += onSynthesizerVoiceChanged;
+                sp[i].VoiceName = voices[i].VoiceInfo.Name;
             }
 
             foreach (var s in sp)
             {
-                s.Speak("Hello from " + s.SpeakerName + ": " + s.VoiceName, synth);
-
+                try
+                {
+                    s.Speak($"Hello from {s.SpeakerName}: {s.VoiceName}");
+                }
+                catch (InvalidOperationException ioex)
+                {
+                    Debug.WriteLine(ioex.Message);
+                }
             }
-
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
         }
 
-        static void OnError(object sender, UnhandledExceptionEventArgs e)
+        static void onErrored(object sender, UnhandledExceptionEventArgs e)
         {
-            MessageBox.Show("Speaker " + sender + " failed to speak: " + e.ExceptionObject);
+            MessageBox.Show($"Speaker {sender} with voice type {(sender as Speaker)?.VoiceName} threw an exception:\r\n {e.ExceptionObject}");
 
             if (e.IsTerminating)
             {
-                Exception ex = new Exception("Speaker failure.", e.ExceptionObject as Exception);
+                var ex = new Exception("Speaker failure.", e.ExceptionObject as Exception);
+                throw ex;
             }
+        }
+
+        static void onSynthesizerVoiceChanged(object sender, VoiceChangeEventArgs e)
+        {
+            MessageBox.Show($"{sender}'s synthesizer voice was changed to {e.Voice.Name}");
         }
 
         #endregion

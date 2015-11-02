@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Speech.Synthesis;
 using Attribute.ChatSpeaker.Annotations;
-using Attribute.ChatSpeaker.Speech.Events;
 
 namespace Attribute.ChatSpeaker.Speech
 {
@@ -21,12 +20,17 @@ namespace Attribute.ChatSpeaker.Speech
         /// </summary>
         public Speaker()
         {
-            this.OnErrored += (pSender, pEventArgs) => this.Errored = true;
-            this.PropertyChanged += (pSender, pEventArgs) => this.Errored = false;
+            this.Errored += this.this_Errored;
+            this.PropertyChanged += this.this_PropertyChanged;
         }
 
-        public Speaker(SpeechSynthesizer synthesizer)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Speaker"/> class.
+        /// </summary>
+        /// <param name="synthesizer">The <see cref="SpeechSynthesizer"/> for the Speaker to use.</param>
+        public Speaker(SpeechSynthesizer synthesizer) : this()
         {
+            this.Synthesizer = synthesizer;
         }
 
         #endregion
@@ -43,9 +47,9 @@ namespace Attribute.ChatSpeaker.Speech
         ///     synthesizer is used.
         /// </param>
         /// <exception cref="InvalidOperationException">Thrown if the speaker attempts to speak while in an errored state.</exception>
-        public void Speak(string line, SpeechSynthesizer synthesizer)
+        public void Speak(string line, SpeechSynthesizer synthesizer = null)
         {
-            if (!this.Errored)
+            if (!this.IsErrored)
             {
                 try
                 {
@@ -62,7 +66,7 @@ namespace Attribute.ChatSpeaker.Speech
                 }
                 catch (Exception exception)
                 {
-                    this.OnErrored?.Invoke(this, new UnhandledExceptionEventArgs(exception, false));
+                    this.Errored?.Invoke(this, new UnhandledExceptionEventArgs(exception, false));
                 }
             }
             else
@@ -74,7 +78,7 @@ namespace Attribute.ChatSpeaker.Speech
 
         public void SpeakAsync(string line, SpeechSynthesizer synthesizer = null)
         {
-            if (!this.Errored)
+            if (!this.IsErrored)
             {
                 try
                 {
@@ -91,7 +95,7 @@ namespace Attribute.ChatSpeaker.Speech
                 }
                 catch (Exception exception)
                 {
-                    this.OnErrored?.Invoke(this, new UnhandledExceptionEventArgs(exception, false));
+                    this.Errored?.Invoke(this, new UnhandledExceptionEventArgs(exception, false));
                 }
             }
             else
@@ -133,7 +137,22 @@ namespace Attribute.ChatSpeaker.Speech
             {
                 if (value != this._synthesizer)
                 {
+                    if (this._synthesizer != null)
+                    {
+                        this._synthesizer.SpeakStarted -= this.Synthesizer_SpeakStarted;
+                        this._synthesizer.SpeakCompleted -= this.Synthesizer_SpeakCompleted;
+                        this._synthesizer.VoiceChange -= this.Synthesizer_VoiceChange;
+                    }
+
                     this._synthesizer = value;
+
+                    if (value != null)
+                    {
+                        this._synthesizer.SpeakStarted += this.Synthesizer_SpeakStarted;
+                        this._synthesizer.SpeakCompleted += this.Synthesizer_SpeakCompleted;
+                        this._synthesizer.VoiceChange += this.Synthesizer_VoiceChange;
+                    }
+
                     this.onPropertyChanged(nameof(this.Synthesizer));
                 }
             }
@@ -157,8 +176,14 @@ namespace Attribute.ChatSpeaker.Speech
 
                     if (this.Synthesizer != null && !string.IsNullOrEmpty(value))
                     {
-                        this.Synthesizer.SelectVoice(value);
-                        this.OnSynthesizerVoiceChanged?.Invoke(this, new SynthesizerVoiceChangedEventArgs(value));
+                        try
+                        {
+                            this.Synthesizer.SelectVoice(value);
+                        }
+                        catch (Exception ex)
+                        {
+                            this.Errored?.Invoke(this, new UnhandledExceptionEventArgs(ex, false));
+                        }
                     }
                 }
             }
@@ -208,7 +233,7 @@ namespace Attribute.ChatSpeaker.Speech
         /// </returns>
         public override string ToString()
         {
-            return $"{this.SpeakerName}: {this.VoiceName}";
+            return $"{this.SpeakerName}";
         }
 
         #endregion
@@ -227,21 +252,58 @@ namespace Attribute.ChatSpeaker.Speech
 
         #region [-- EVENT HANDLERS --]
 
-        public event UnhandledExceptionEventHandler OnErrored;
+        private void Synthesizer_SpeakCompleted(object sender, SpeakCompletedEventArgs e)
+        {
+            this.SynthesizerSpeakCompleted?.Invoke(this, e);
+        }
+
+        private void Synthesizer_SpeakStarted(object sender, SpeakStartedEventArgs e)
+        {
+            this.SynthesizerSpeakStarted?.Invoke(this, e);
+        }
+
+        private void Synthesizer_VoiceChange(object sender, VoiceChangeEventArgs e)
+        {
+            this.SynthesizerVoiceChanged?.Invoke(this, e);
+        }
+
+        private void this_Errored(object sender, UnhandledExceptionEventArgs e)
+        {
+            // ReSharper disable once PossibleUnintendedReferenceComparison
+            if (sender == this)
+            {
+                this.IsErrored = true;
+            }
+        }
+
+        private void this_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // ReSharper disable once PossibleUnintendedReferenceComparison
+            if (sender == this)
+            {
+                this.IsErrored = false;
+            }
+        }
+
+        public event UnhandledExceptionEventHandler Errored;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public event EventHandler<SynthesizerVoiceChangedEventArgs> OnSynthesizerVoiceChanged;
+        public event EventHandler<VoiceChangeEventArgs> SynthesizerVoiceChanged;
+
+        public event EventHandler<SpeakStartedEventArgs> SynthesizerSpeakStarted;
+
+        public event EventHandler<SpeakCompletedEventArgs> SynthesizerSpeakCompleted;
 
         #endregion
 
 
         #region [-- PROPERTIES --]
 
-        public bool Errored
+        public bool IsErrored
         {
-            get { return this._errored; }
-            set { this._errored = value; }
+            get { return this._isErrored; }
+            set { this._isErrored = value; }
         }
 
         #endregion
@@ -249,7 +311,7 @@ namespace Attribute.ChatSpeaker.Speech
 
         #region [-- FIELDS --]
 
-        private bool _errored;
+        private bool _isErrored;
         private string _speakerName;
         private SpeechSynthesizer _synthesizer;
         private string _voiceName;
