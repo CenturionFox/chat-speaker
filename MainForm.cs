@@ -11,6 +11,11 @@ namespace Attribute.ChatSpeaker
             this.InitializeComponent();
         }
 
+        private void _exitButtonFileMenu_Click(object sender, System.EventArgs e)
+        {
+            this.Close();
+        }
+
         #endregion
 
         //TODO: Create list control for viewing currently active chat users

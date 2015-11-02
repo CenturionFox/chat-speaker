@@ -13,7 +13,7 @@ namespace Attribute.ChatSpeaker.Speech
     ///     An implementation of <see cref="ISpeaker" />.
     /// </summary>
     [DataContract,
-     DebuggerDisplay("Name: {SpeakerName}; Voice: {VoiceName}; Custom Synthesizer: {HasCustomSynthesizer}"),
+     DebuggerDisplay("Speaker[Name:{SpeakerName},Voice:{VoiceName},Custom Synthesizer:{HasCustomSynthesizer}]"),
      Serializable,
      XmlRoot(ElementName = "speaker")]
     public sealed class Speaker : ISpeaker, INotifyPropertyChanged
@@ -76,8 +76,12 @@ namespace Attribute.ChatSpeaker.Speech
             }
             else
             {
-                throw new InvalidOperationException(
+                var ioex = new InvalidOperationException(
                     $"Unable to speak the specified line: The speaker \"{this}\" is currently in an errored state.");
+
+                ioex.Data.Add("Voice", this.VoiceName);
+
+                throw ioex;
             }
         }
 
@@ -113,8 +117,12 @@ namespace Attribute.ChatSpeaker.Speech
             }
             else
             {
-                throw new InvalidOperationException(
+                var ioex = new InvalidOperationException(
                     $"Unable to speak the specified line: The speaker \"{this}\" is currently in an errored state.");
+
+                ioex.Data.Add("Voice", this.VoiceName);
+
+                throw ioex;
             }
         }
 
@@ -176,6 +184,7 @@ namespace Attribute.ChatSpeaker.Speech
                             }
                             catch (Exception ex)
                             {
+                                ex.Data.Add("Voice", this.VoiceName);
                                 this.Errored?.Invoke(this, new UnhandledExceptionEventArgs(ex, false));
                             }
                         }
@@ -209,6 +218,7 @@ namespace Attribute.ChatSpeaker.Speech
                         }
                         catch (Exception ex)
                         {
+                            ex.Data.Add("Voice", this.VoiceName);
                             this.Errored?.Invoke(this, new UnhandledExceptionEventArgs(ex, false));
                         }
                     }
