@@ -1,4 +1,5 @@
-﻿using System.Windows.Forms;
+﻿using System;
+using System.Windows.Forms;
 
 namespace Attribute.ChatSpeaker
 {
@@ -11,15 +12,16 @@ namespace Attribute.ChatSpeaker
             this.InitializeComponent();
         }
 
-        private void _exitButtonFileMenu_Click(object sender, System.EventArgs e)
+        #endregion
+
+
+        #region [-- EVENT HANDLERS --]
+
+        private void _exitButtonFileMenu_Click(object sender, EventArgs e)
         {
             this.Close();
         }
 
         #endregion
-
-        //TODO: Create list control for viewing currently active chat users
-        //TODO: Create file watcher for Minecraft logs
-        //TODO: Create Browse control for Minecraft logs
     }
 }

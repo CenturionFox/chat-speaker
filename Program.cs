@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Globalization;
-using System.Speech.Synthesis;
-using System.Threading;
 using System.Windows.Forms;
-using Attribute.ChatSpeaker.Speech;
 
 namespace Attribute.ChatSpeaker
 {
@@ -49,22 +44,6 @@ namespace Attribute.ChatSpeaker
             //}
             Application.Run(new MainForm());
         }
-
-        //static void onErrored(object sender, UnhandledExceptionEventArgs e)
-        //{
-        //    MessageBox.Show($"Speaker {sender} with voice type {(sender as Speaker)?.VoiceName} threw an exception:\r\n {e.ExceptionObject}");
-
-        //    if (e.IsTerminating)
-        //    {
-        //        var ex = new Exception("Speaker failure.", e.ExceptionObject as Exception);
-        //        throw ex;
-        //    }
-        //}
-
-        //static void onSynthesizerVoiceChange(object sender, VoiceChangeEventArgs e)
-        //{
-        //    MessageBox.Show($"{sender}'s synthesizer voice was changed to {e.Voice.Name}");
-        //}
 
         #endregion
     }
